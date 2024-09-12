@@ -1,0 +1,75 @@
+import os
+import random
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+import pandas as pd
+
+def check_and_update_sequence(sequence):
+    nucleotides = ['A', 'T', 'C', 'G']
+    original_length = len(sequence)
+    new_nucleotide_added = 'no'
+    added_nucleotides = ''
+
+    while len(sequence) % 3 != 0:
+        added_nucleotide = random.choice(nucleotides)
+        sequence += added_nucleotide
+        added_nucleotides += added_nucleotide
+        new_nucleotide_added = 'yes'
+
+    return sequence, original_length, new_nucleotide_added, added_nucleotides
+
+def calculate_gc_content(sequence):
+    gc_count = sequence.count('G') + sequence.count('C')
+    return round((gc_count / len(sequence)) * 100)
+
+def process_fasta_file(input_fasta, output_fasta, output_csv):
+    records = list(SeqIO.parse(input_fasta, 'fasta'))
+    updated_records = []
+    data = []
+
+    for record in records:
+        original_sequence = str(record.seq)
+        updated_sequence, original_length, new_nucleotide_added, added_nucleotides = check_and_update_sequence(original_sequence)
+        new_length = len(updated_sequence)
+        gc_content = calculate_gc_content(original_sequence)
+
+        updated_records.append(SeqRecord(Seq(updated_sequence), id=record.id, description=''))
+
+        data.append([
+            record.id,
+            original_length,
+            gc_content,
+            new_length,
+            new_nucleotide_added,
+            added_nucleotides if added_nucleotides else 'NA',
+            updated_sequence
+        ])
+
+    # Write updated sequences to the new FASTA file
+    with open(output_fasta, 'w') as fasta_file:
+        SeqIO.write(updated_records, fasta_file, 'fasta')
+
+    # Create DataFrame and write to CSV
+    df = pd.DataFrame(data, columns=[
+        'SeqID', 'Original Length', 'GC Content', 'New Length',
+        'New Nucleotide Added', 'Nucleotides Added', 'New Sequence'
+    ])
+    df.to_csv(output_csv, index=False)
+
+def process_fasta_files():
+    input_fasta1 = 'NormalATGC.fasta'
+    input_fasta2 = 'HighATGC.fasta'
+    output_fasta1 = 'NormalATGC_updated.fasta'
+    output_fasta2 = 'HighATGC_updated.fasta'
+    output_csv1 = 'NormalATGC_updated.csv'
+    output_csv2 = 'HighATGC_updated.csv'
+
+    process_fasta_file(input_fasta1, output_fasta1, output_csv1)
+    process_fasta_file(input_fasta2, output_fasta2, output_csv2)
+
+    print(f"Processed files: {output_fasta1}, {output_fasta2}, {output_csv1}, {output_csv2}")
+
+# Run the processing function
+if __name__ == "__main__":
+    process_fasta_files()
