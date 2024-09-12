@@ -1,0 +1,73 @@
+import os
+import random
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+import pandas as pd
+
+def add_start_stop_codons(sequence):
+    stop_codons = ['TAA', 'TGA', 'TAG']
+    stop_codon = random.choice(stop_codons)
+    new_sequence = 'ATG' + sequence + stop_codon
+    atg_position = 1
+    stop_codon_position = len(new_sequence) - 2
+    return new_sequence, atg_position, stop_codon_position, stop_codon
+
+def process_and_update_files(input_fasta, input_csv, output_fasta, output_csv):
+    records = list(SeqIO.parse(input_fasta, 'fasta'))
+    df = pd.read_csv(input_csv)
+
+    updated_records = []
+    data = []
+
+    for record in records:
+        original_sequence = str(record.seq)
+        new_sequence, atg_position, stop_codon_position, stop_codon = add_start_stop_codons(original_sequence)
+        new_length = len(new_sequence)
+
+        updated_records.append(SeqRecord(Seq(new_sequence), id=record.id, description=''))
+
+        # Find the corresponding row in the DataFrame
+        row = df[df['SeqID'] == record.id].iloc[0]
+
+        # Update the DataFrame
+        data.append([
+            row['SeqID'],
+            row['Original Length'],
+            row['GC Content'],
+            new_length,
+            atg_position,
+            stop_codon_position,
+            stop_codon,
+            new_sequence
+        ])
+
+    # Write updated sequences to the new FASTA file
+    with open(output_fasta, 'w') as fasta_file:
+        SeqIO.write(updated_records, fasta_file, 'fasta')
+
+    # Create DataFrame and write to CSV
+    new_df = pd.DataFrame(data, columns=[
+        'SeqID', 'Original Length', 'GC Content', 'New Length',
+        'ATG Position', 'Stop Codon Position', 'Stop Codon Used', 'New Sequence'
+    ])
+    new_df.to_csv(output_csv, index=False)
+
+def process_previous_outputs():
+    input_fasta1 = 'NormalATGC_final.fasta'
+    input_fasta2 = 'HighATGC_final.fasta'
+    input_csv1 = 'NormalATGC_final.csv'
+    input_csv2 = 'HighATGC_final.csv'
+    output_fasta1 = 'NormalATGC_ORF.fasta'
+    output_fasta2 = 'HighATGC_ORF.fasta'
+    output_csv1 = 'NormalATGC_ORF.csv'
+    output_csv2 = 'HighATGC_ORF.csv'
+
+    process_and_update_files(input_fasta1, input_csv1, output_fasta1, output_csv1)
+    process_and_update_files(input_fasta2, input_csv2, output_fasta2, output_csv2)
+
+    print(f"Processed files: {output_fasta1}, {output_fasta2}, {output_csv1}, {output_csv2}")
+
+# Run the processing function
+if __name__ == "__main__":
+    process_previous_outputs()
