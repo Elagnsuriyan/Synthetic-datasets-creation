@@ -1,0 +1,72 @@
+import os
+from math import ceil
+from Bio import SeqIO
+import pandas as pd
+
+def divide_sequences(sequences, percentages):
+    """Divide sequences into groups based on given percentages."""
+    total = len(sequences)
+    divided_sequences = []
+    start = 0
+    for p in percentages:
+        end = start + ceil(total * p / 100)
+        divided_sequences.append(sequences[start:end])
+        start = end
+    return divided_sequences
+
+def export_sequences(sequences, output_prefix):
+    """Export sequences to FASTA and CSV files and print the count of sequences."""
+    output_fasta = f"{output_prefix}.fasta"
+    output_csv = f"{output_prefix}.csv"
+
+    with open(output_fasta, 'w') as fasta_file:
+        SeqIO.write(sequences, fasta_file, 'fasta')
+
+    data = [{'SeqID': seq.id, 'Length': len(seq.seq), 'Seq': str(seq.seq)} for seq in sequences]
+    df = pd.DataFrame(data)
+    df.to_csv(output_csv, index=False)
+
+    num_sequences = len(sequences)
+    print(f"{output_prefix}: {num_sequences} sequences")
+
+def process_and_export(input_file, prefix, naming_tag):
+    sequences = list(SeqIO.parse(input_file, 'fasta'))
+
+    # First division: 12% and 88%
+    percentages_1 = [12, 88]
+    divided_1 = divide_sequences(sequences, percentages_1)
+
+    # Export x1 and x2 or y1 and y2
+    export_sequences(divided_1[0], f"{prefix}1_{naming_tag}")
+    export_sequences(divided_1[1], f"{prefix}2_{naming_tag}")
+
+    # Second division for both first and second groups
+    percentages_2 = [23, 27, 32, 18]
+    divided_2_first = divide_sequences(divided_1[0], percentages_2)
+    divided_2_second = divide_sequences(divided_1[1], percentages_2)
+
+    # Export x11, x12, x13, x14 or y11, y12, y13, y14
+    for i, suffix in enumerate(['11', '12', '13', '14']):
+        export_sequences(divided_2_first[i], f"{prefix}1{suffix[1]}_{naming_tag}")
+        export_sequences(divided_2_second[i], f"{prefix}2{suffix[1]}_{naming_tag}")
+
+    # Third division for all second-level groups
+    percentages_3 = [50, 30, 15, 5]
+    for first_suffix in ['1', '2']:
+        for sub_suffix in ['1', '2', '3', '4']:
+            sub_group = list(SeqIO.parse(f"{prefix}{first_suffix}{sub_suffix}_{naming_tag}.fasta", 'fasta'))
+            divided_3 = divide_sequences(sub_group, percentages_3)
+            for i, suffix in enumerate(['1', '2', '3', '4']):
+                export_sequences(divided_3[i], f"{prefix}{first_suffix}{sub_suffix}{suffix}_{naming_tag}")
+
+def main():
+    # Process files for 'NormalATGC_ORF.fasta'
+    process_and_export('NormalATGC_ORF.fasta', 'x', 'POS')
+
+    # Process files for 'HighATGC_ORF.fasta'
+    process_and_export('HighATGC_ORF.fasta', 'y', 'NEG')
+
+    print("Processing and exporting completed.")
+
+if __name__ == "__main__":
+    main()
