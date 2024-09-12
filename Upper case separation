@@ -1,0 +1,87 @@
+import re
+import csv
+
+def process_sequences(sites_file):
+    # Read sequences from the .sites file
+    with open(sites_file, 'r') as file:
+        lines = file.readlines()
+
+    sequences = {}
+    seq_id = None
+    seq = ""
+
+    for line in lines:
+        line = line.strip()
+        if line.startswith('>'):
+            if seq_id is not None:
+                sequences[seq_id] = seq
+            seq_id = line[1:]  # Remove '>'
+            seq = ""
+        else:
+            seq += line
+    if seq_id is not None:
+        sequences[seq_id] = seq
+
+    return sequences
+
+def split_sequence(sequence):
+    match = re.search(r'[A-Z]+', sequence)
+    if match:
+        left = sequence[:match.start()].upper()
+        uppercase = match.group()
+        right = sequence[match.end():].upper()
+    else:
+        left = sequence.upper()
+        uppercase = ""
+        right = ""
+    return left, uppercase, right
+
+def save_fasta(sequences, file_name):
+    with open(file_name, 'w') as file:
+        for seq_id, seq in sequences.items():
+            file.write(f">{seq_id}\n{seq}\n")
+
+def process_and_save(sites_file, uppercase_fasta, csv_file):
+    sequences = process_sequences(sites_file)
+
+    uppercase_sequences = {}
+    csv_data = []
+
+    for seq_id, sequence in sequences.items():
+        left, uppercase, right = split_sequence(sequence)
+        uppercase_sequences[seq_id] = uppercase
+
+        csv_data.append([
+            seq_id,
+            len(sequence),
+            len(uppercase),
+            uppercase,
+            sequence.upper(),
+        ])
+
+    save_fasta(uppercase_sequences, uppercase_fasta)
+
+    # Write CSV file
+    with open(csv_file, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow([
+            'Sequence ID', 'Actual Length', 'Uppercase Length', 'Uppercase Sequence', 'Uppercased Sequence'
+        ])
+        csv_writer.writerows(csv_data)
+
+    print(f"Processing complete for {sites_file}. Files created: {uppercase_fasta}, {csv_file}")
+
+# Define the input .sites files and corresponding output files
+sites_files = [
+    'MA0504.1.sites',
+    'MA0595.1.sites',
+    'MA0596.1.sites',
+    'MA0597.1.sites'
+]
+
+for i, sites_file_path in enumerate(sites_files):
+    uppercase_fasta_path = f'Uppercase_{i+1}.fasta'
+    csv_file_path = f'sequences_info_{i+1}.csv'
+
+    # Run the process for each input file
+    process_and_save(sites_file_path, uppercase_fasta_path, csv_file_path)
