@@ -1,0 +1,53 @@
+import os
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+import pandas as pd
+
+def read_and_remove_duplicates(fasta_filename):
+    sequences = {}
+    unique_records = []
+
+    for record in SeqIO.parse(fasta_filename, 'fasta'):
+        seq_str = str(record.seq)
+        if seq_str not in sequences:
+            sequences[seq_str] = record.id
+            unique_records.append(record)
+
+    # Write the unique sequences back to the FASTA file
+    with open(fasta_filename, 'w') as output_handle:
+        SeqIO.write(unique_records, output_handle, 'fasta')
+
+    return unique_records
+
+def generate_csv_from_fasta(fasta_filename, csv_filename):
+    records = list(SeqIO.parse(fasta_filename, 'fasta'))
+    data = []
+
+    for record in records:
+        seq_id = record.id
+        seq_length = len(record.seq)
+        data.append((seq_id, seq_length))
+
+    df = pd.DataFrame(data, columns=['SeqID', 'Length'])
+    df.to_csv(csv_filename, index=False)
+
+def process_fasta_files(input_fasta1, input_fasta2):
+    # Remove duplicates and update FASTA files
+    unique_records1 = read_and_remove_duplicates(input_fasta1)
+    unique_records2 = read_and_remove_duplicates(input_fasta2)
+
+    # Generate CSV files
+    csv_filename1 = os.path.splitext(input_fasta1)[0] + '_updated.csv'
+    csv_filename2 = os.path.splitext(input_fasta2)[0] + '_updated.csv'
+
+    generate_csv_from_fasta(input_fasta1, csv_filename1)
+    generate_csv_from_fasta(input_fasta2, csv_filename2)
+
+    print(f"Processed FASTA files and generated CSVs: {csv_filename1}, {csv_filename2}")
+
+# Example usage:
+input_fasta1 = 'NormalATGC.fasta'
+input_fasta2 = 'HighATGC.fasta'
+
+process_fasta_files(input_fasta1, input_fasta2)
