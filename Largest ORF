@@ -1,0 +1,82 @@
+import os
+from Bio import SeqIO
+from Bio.Seq import Seq
+import pandas as pd
+
+def find_largest_orf(sequence):
+    stop_codons = {'TAA', 'TGA', 'TAG'}
+    orfs = []
+    current_orf_start = None
+
+    # Traverse the sequence in triplets
+    for i in range(0, len(sequence), 3):
+        codon = sequence[i:i+3]
+        if codon == 'ATG' and current_orf_start is None:
+            current_orf_start = i
+        elif codon in stop_codons and current_orf_start is not None:
+            orfs.append((current_orf_start, i + 3))
+            current_orf_start = None
+
+    # If an ORF is still open at the end of the sequence, close it
+    if current_orf_start is not None:
+        orfs.append((current_orf_start, len(sequence)))
+
+    # Find the largest ORF
+    largest_orf = max(orfs, key=lambda orf: orf[1] - orf[0], default=(0, 0))
+    orf_length = largest_orf[1] - largest_orf[0]
+
+    return orf_length, largest_orf[0], largest_orf[1]
+
+def process_and_update_files(input_fasta, input_csv, output_csv):
+    records = list(SeqIO.parse(input_fasta, 'fasta'))
+    df = pd.read_csv(input_csv)
+
+    data = []
+
+    for record in records:
+        sequence = str(record.seq)
+        orf_length, orf_start, orf_end = find_largest_orf(sequence)
+
+        # Find the corresponding row in the DataFrame
+        row = df[df['SeqID'] == record.id].iloc[0]
+
+        # Update the DataFrame
+        updated_row = [
+            row['SeqID'],
+            row['Original Length'],
+            row['GC Content'],
+            row['New Length'],
+            row['ATG Position'],
+            row['Stop Codon Position'],
+            row['Stop Codon Used'],
+            orf_length,
+            orf_start + 1,  # Convert to 1-based index
+            orf_end,
+            row['New Sequence']
+        ]
+        data.append(updated_row)
+
+    # Create DataFrame and write to CSV
+    new_df = pd.DataFrame(data, columns=[
+        'SeqID', 'Original Length', 'GC Content', 'New Length',
+        'ATG Position', 'Stop Codon Position', 'Stop Codon Used',
+        'ORF Length', 'ORF Start Position', 'ORF End Position', 'New Sequence'
+    ])
+    new_df.to_csv(output_csv, index=False)
+
+def process_previous_outputs():
+    input_fasta1 = 'NormalATGC_ORF.fasta'
+    input_fasta2 = 'HighATGC_ORF.fasta'
+    input_csv1 = 'NormalATGC_ORF.csv'
+    input_csv2 = 'HighATGC_ORF.csv'
+    output_csv1 = 'NormalATGC_final_with_ORF.csv'
+    output_csv2 = 'HighATGC_final_with_ORF.csv'
+
+    process_and_update_files(input_fasta1, input_csv1, output_csv1)
+    process_and_update_files(input_fasta2, input_csv2, output_csv2)
+
+    print(f"Processed files: {output_csv1}, {output_csv2}")
+
+# Run the processing function
+if __name__ == "__main__":
+    process_previous_outputs()
