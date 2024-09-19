@@ -1,0 +1,49 @@
+import shutil
+import os
+
+# Assign input files to variables
+a = "MA0504.1.sites"
+b = "MA0595.1.sites"
+c = "MA0596.1.sites"
+d = "MA0597.1.sites"
+
+# Define output filenames based on assigned variables
+a1 = "a.fasta"
+
+
+
+b1 = "b.fasta"
+
+
+c1 = "c.fasta"
+
+
+d1 = "d.fasta"
+
+# Function to copy and rename files
+def copy_and_rename_files(input_file, output_file):
+    shutil.copy(input_file, output_file)
+
+# Define mappings from variables to output filenames
+file_mappings = {
+    a: "a.sites",
+    b: "b.sites",
+    c: "c.sites",
+    d: "d.sites",
+    "Uppercase_1.fasta": "a.fasta",
+    "Uppercase_2.fasta": "b.fasta",
+    "Uppercase_3.fasta": "c.fasta",
+    "Uppercase_4.fasta": "d.fasta",
+}
+
+# Function to read content from source file and write to destination file
+def transfer_sequences(source_file, destination_file):
+    with open(source_file, 'r') as source_fh, open(destination_file, 'w') as dest_fh:
+        content = source_fh.read()
+        dest_fh.write(content)
+
+# Copy and rename files accordingly
+for input_file, output_file in file_mappings.items():
+    copy_and_rename_files(input_file, output_file)
+
+print("Files renamed successfully.")
