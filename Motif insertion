@@ -1,0 +1,116 @@
+import os
+import random
+import pandas as pd
+from Bio import SeqIO
+from Bio.Seq import Seq, MutableSeq
+from Bio.SeqRecord import SeqRecord
+
+def read_fasta(file_path):
+    print(f"Reading FASTA file: {file_path}")
+    return list(SeqIO.parse(file_path, 'fasta'))
+
+def insert_dna_sequence(y_sequence, a_sequences, insert_range):
+    """
+    Insert one sequence from a_sequences into y_sequence within the specified insert_range.
+    """
+    seq_length = len(y_sequence)
+    start, end = int(seq_length * insert_range[0]), int(seq_length * insert_range[1])
+
+    # Choose 1 sequence randomly from a_sequences
+    insert_seq = random.choice(a_sequences)
+    insert_position = random.randint(start, end-1)
+
+    # Insert sequence
+    mutable_seq = MutableSeq(str(y_sequence))
+    mutable_seq = mutable_seq[:insert_position] + insert_seq.seq + mutable_seq[insert_position:]
+
+    # Print insertion details
+    print(f"Inserted DNA sequence of length {len(insert_seq.seq)} at position {insert_position} in y_sequence")
+    print(f"Inserted DNA sequence: {insert_seq.seq}")
+
+    return mutable_seq, insert_position, insert_seq
+
+def process_files(y_files, a_files, output_dir):
+    results = []
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for i, y_file in enumerate(y_files):
+        y_base = os.path.basename(y_file)
+        y_id = y_base.split('.')[0]  # Extracts the part before ".fasta"
+
+        if i < len(a_files):
+            a_file = a_files[i]  # Use the corresponding a file based on index
+        else:
+            print(f"No corresponding a file found for {y_file}. Skipping.")
+            continue
+
+        a_series, a_percent = os.path.basename(a_file).split('_')[0], os.path.basename(a_file).split('_')[1].split('.')[0]
+
+        a_sequences = read_fasta(a_file)
+        y_sequences = read_fasta(y_file)
+
+        insert_range = (0.0, 0.20)  # Insert range for a1_50.fasta
+
+        prefix = "POS" if y_id.startswith('y') else "NEG"
+        output_fasta = os.path.join(output_dir, f'{prefix}_{y_id}_{a_series}_{a_percent}_modified.fasta')
+        output_csv = os.path.join(output_dir, f'{prefix}_{y_id}_{a_series}_{a_percent}_insertion_details.csv')
+
+        modified_records = []
+        insertion_details = []
+
+        for y_record in y_sequences:
+            try:
+                modified_seq, position, insert_seq = insert_dna_sequence(y_record.seq, a_sequences, insert_range)
+
+                modified_records.append(SeqRecord(Seq(str(modified_seq)), id=y_record.id, description=""))
+
+                insertion_details.append({
+                    'SeqID': y_record.id,
+                    'Old Length': len(y_record.seq),
+                    'New Length': len(modified_seq),
+                    'Inserted Position (in percentage)': insert_range,
+                    'Inserted Position': position,
+                    'Inserted DNA Size': len(insert_seq.seq),
+                    'Inserted DNA Seq': str(insert_seq.seq)
+                })
+            except Exception as e:
+                print(f"Error processing sequence {y_record.id}: {e}")
+
+        if modified_records:
+            SeqIO.write(modified_records, output_fasta, 'fasta')
+            print(f"Written modified records to {output_fasta}")
+        if insertion_details:
+            pd.DataFrame(insertion_details).to_csv(output_csv, index=False)
+            print(f"Written insertion details to {output_csv}")
+
+        results.append({
+            'New Inserted File Name': output_fasta,
+            'Total Number of Genes': len(modified_records)
+        })
+
+    master_csv = os.path.join(output_dir, 'master_insertion_summary.csv')
+    pd.DataFrame(results).to_csv(master_csv, index=False)
+    print(f"Written master insertion summary to {master_csv}")
+
+def main():
+    y_files = [
+        'y111_NEG.fasta', 'y112_NEG.fasta', 'y113_NEG.fasta', 'y114_NEG.fasta',
+        'y121_NEG.fasta', 'y122_NEG.fasta', 'y123_NEG.fasta', 'y124_NEG.fasta',
+        'y131_NEG.fasta', 'y132_NEG.fasta', 'y133_NEG.fasta', 'y134_NEG.fasta',
+        'y141_NEG.fasta', 'y142_NEG.fasta', 'y143_NEG.fasta', 'y144_NEG.fasta'
+    ]
+
+    a_files = [
+        'a_50.fasta', 'a_30.fasta', 'a_15.fasta', 'a_5.fasta',
+        'b_50.fasta', 'b_30.fasta', 'b_15.fasta', 'b_5.fasta',
+        'c_50.fasta', 'c_30.fasta', 'c_15.fasta', 'c_5.fasta',
+        'd_50.fasta', 'd_30.fasta', 'd_15.fasta', 'd_5.fasta'
+    ]
+
+    output_dir = 'test4'
+    process_files(y_files, a_files, output_dir)
+
+if __name__ == "__main__":
+    main()
