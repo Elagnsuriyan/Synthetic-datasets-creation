@@ -1,0 +1,55 @@
+import os
+import pandas as pd
+from Bio import SeqIO
+from math import ceil
+
+def divide_sequences(input_fasta, percentages):
+    # Read sequences from FASTA
+    records = list(SeqIO.parse(input_fasta, 'fasta'))
+
+    # Calculate number of sequences for each percentage
+    total_sequences = len(records)
+    divided_counts = [ceil(total_sequences * p / 100) for p in percentages]
+
+    # Divide sequences into groups
+    divided_sequences = [[] for _ in percentages]
+    for i, count in enumerate(divided_counts):
+        divided_sequences[i] = records[:count]
+        records = records[count:]
+
+    return divided_sequences
+
+def export_divided_sequences(divided_sequences, input_fasta, percentages, summary_data):
+    file_name = os.path.splitext(input_fasta)[0]
+
+    for i, sequences in enumerate(divided_sequences):
+        percentage = percentages[i]
+        output_fasta = f"{file_name}_{percentage}.fasta"
+
+        # Write sequences to FASTA
+        with open(output_fasta, 'w') as fasta_fh:
+            SeqIO.write(sequences, fasta_fh, 'fasta')
+
+        # Append summary data
+        summary_data.append([output_fasta, len(sequences)])
+
+def process_division():
+    input_files = [
+        'a.fasta', 'b.fasta', 'c.fasta','d.fasta',]
+    percentages = [50, 30, 15, 5]
+
+    summary_data = []
+
+    for input_fasta in input_files:
+        divided_sequences = divide_sequences(input_fasta, percentages)
+        export_divided_sequences(divided_sequences, input_fasta, percentages, summary_data)
+        print(f"Processed {input_fasta} based on {percentages}% division.")
+
+    # Create a DataFrame for summary and export to CSV
+    df_summary = pd.DataFrame(summary_data, columns=['Fasta File', 'Number of Sequences'])
+    df_summary.to_csv('fasta_summary.csv', index=False)
+    print("Summary CSV file generated: fasta_summary.csv")
+
+# Run the processing function
+if __name__ == "__main__":
+    process_division()
