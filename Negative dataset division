@@ -1,0 +1,52 @@
+import os
+from Bio import SeqIO
+import pandas as pd
+
+def divide_fasta(input_fasta, output_dir):
+    # Create output directory if it doesn't exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Read input FASTA file
+    sequences = list(SeqIO.parse(input_fasta, "fasta"))
+
+    # Calculate number of sequences per file
+    num_sequences = len(sequences)
+    sequences_per_file = num_sequences // 20  # Divide into 20 files
+
+    # Save sequences into separate files
+    for i in range(20):
+        start_index = i * sequences_per_file
+        end_index = start_index + sequences_per_file
+        if i == 19:
+            end_index = num_sequences  # Last file gets the remaining sequences
+
+        # Prepare output file paths
+        output_file = os.path.join(output_dir, f"file_{i+1}.fasta")
+
+        # Write sequences to file
+        SeqIO.write(sequences[start_index:end_index], output_file, "fasta")
+
+        # Print information
+        print(f"Saved {end_index - start_index} sequences to {output_file}")
+
+    # Save summary CSV file
+    summary_data = {'File Name': [], 'Number of Sequences': []}
+    for i in range(20):
+        file_name = f"file_{i+1}.fasta"
+        summary_data['File Name'].append(file_name)
+        summary_data['Number of Sequences'].append(len(sequences[i * sequences_per_file:(i + 1) * sequences_per_file]))
+
+    summary_df = pd.DataFrame(summary_data)
+    summary_csv = os.path.join(output_dir, 'file_summary.csv')
+    summary_df.to_csv(summary_csv, index=False)
+    print(f"Saved summary CSV file to {summary_csv}")
+
+def main():
+    input_fasta = 'x2_POS.fasta'  # Replace with your input file name
+    output_dir = 'output_folder'  # Replace with your desired output folder name
+
+    divide_fasta(input_fasta, output_dir)
+
+if __name__ == "__main__":
+    main()
